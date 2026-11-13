@@ -1,0 +1,7 @@
+node_modules/
+dist/
+local.settings.json
+*.log
+# 検証モードの出力(本人のメール由来。コミットしない)
+taskuri-report*.html
+taskuri-report*.json

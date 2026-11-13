@@ -1,0 +1,27 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+
+    "TASKURI_SCHEDULE": "0 */15 * * * *",
+    "TASKURI_SITE_ID": "<contoso.sharepoint.com,xxxxxxxx-....,yyyyyyyy-....>",
+    "TASKURI_TASK_LIST_ID": "<タスクリストのID(GUID)>",
+    "TASKURI_SETTINGS_LIST_ID": "<設定リストのID(GUID)>",
+
+    "AOAI_ENDPOINT": "https://<your-aoai>.openai.azure.com/",
+    "AOAI_DEPLOYMENT": "<デプロイ名>",
+    "AOAI_API_VERSION": "2024-10-21",
+    "AOAI_TEMPERATURE": "",
+
+    "TASKURI_MAX_MAILS": "50",
+    "TASKURI_FIRST_LOOKBACK_HOURS": "24",
+    "TASKURI_BODY_MAX_CHARS": "4000",
+    "TASKURI_AI_CONCURRENCY": "3",
+    "TASKURI_GRANT_OWNERS": "true",
+
+    "AZURE_TENANT_ID": "<ローカル実行時のみ: テナントID>",
+    "AZURE_CLIENT_ID": "<ローカル実行時のみ: テスト用アプリのクライアントID>",
+    "AZURE_CLIENT_CERTIFICATE_PATH": "<ローカル実行時のみ: 証明書(PEM)のパス。SharePoint REST はシークレット不可。本番はマネージドIDなので不要>"
+  }
+}

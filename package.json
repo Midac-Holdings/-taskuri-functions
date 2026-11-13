@@ -1,0 +1,22 @@
+{
+  "name": "taskuri-functions",
+  "version": "0.1.0",
+  "description": "タスクリ: Outlookメールから今日やるべきタスクを抽出してSharePointリストに書き込む共通基盤",
+  "main": "dist/src/functions/*.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "npm run build && node --test \"dist/test/**/*.test.js\"",
+    "start": "npm run build && func start",
+    "trial": "npm run build && node dist/src/trial/run.js"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "@azure/identity": "^4.4.1",
+    "openai": "^4.77.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.0"
+  }
+}
