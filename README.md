@@ -125,7 +125,7 @@ npm run trial -- --days 30 --aliases "山田さん,山田部長" --exclude "nore
 
 ### 1. Function App(AzureChat の App Service プラン `midac19-app-yhggrda5qr5ae` に同居)
 - ホスティング:既存の App Service プラン(専用プラン)を選ぶ。プランと同じリージョン・OS(Linux)で作る
-- ランタイム:Node.js 20 以上、プログラミングモデル v4
+- ランタイム:Node.js 22 以上(Azure SDK の新しい版が Node 22 を前提にしている)、プログラミングモデル v4
 - **Always On をオン**にする(専用プランでは、オフだとタイマーが止まる)
 - ストレージアカウント(`AzureWebJobsStorage`)は別途必要
 - **システム割り当てマネージドID** をオンにする
