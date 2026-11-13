@@ -8,7 +8,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const accessToken = graphToken;
 
-/** Graph呼び出し。429/5xx は Retry-After に従って最大4回リトライ。 */
+/**
+ * Graph呼び出し。429/5xx は Retry-After(なければ 2,4,8,16,30,30 秒)に従って最大6回リトライ。
+ * Exchange が不安定なときは 502/503/504 が続くことがあるため、待ち時間を長めにしている。
+ */
 export async function graphFetch<T>(
   pathOrUrl: string,
   init: { method?: string; body?: unknown; headers?: Record<string, string> } = {},
@@ -24,8 +27,9 @@ export async function graphFetch<T>(
       },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
-    if ((res.status === 429 || res.status >= 500) && attempt < 4) {
-      const wait = Number(res.headers.get("Retry-After")) || 2 ** attempt;
+    if ((res.status === 429 || res.status >= 500) && attempt < 6) {
+      const wait = Number(res.headers.get("Retry-After")) || Math.min(2 ** (attempt + 1), 30);
+      console.warn(`Graph ${res.status} のため ${wait}秒待って再試行します(${attempt + 1}/6)`);
       await sleep(wait * 1000);
       continue;
     }
@@ -69,11 +73,11 @@ const MAIL_FIELDS = [
 export const mailboxPath = (user: string) =>
   user === "me" ? "/me" : `/users/${encodeURIComponent(user)}`;
 
-async function listFolderSince<T>(user: string, folder: string, dateField: string, sinceIso: string, select: string, max: number, preferText: boolean): Promise<T[]> {
+async function listFolderSince<T>(user: string, folder: string, dateField: string, sinceIso: string, select: string, max: number, preferText: boolean, pageSize: number): Promise<T[]> {
   const filter = encodeURIComponent(`${dateField} gt ${sinceIso}`);
   let url: string | undefined =
     `${mailboxPath(user)}/mailFolders/${folder}/messages` +
-    `?$filter=${filter}&$orderby=${dateField}%20asc&$top=50&$select=${select}`;
+    `?$filter=${filter}&$orderby=${dateField}%20asc&$top=${pageSize}&$select=${select}`;
   const out: T[] = [];
   while (url && out.length < max) {
     const page: Page<T> = await graphFetch<Page<T>>(url, {
@@ -90,7 +94,8 @@ async function listFolderSince<T>(user: string, folder: string, dateField: strin
  * uniqueBody は引用部分を除いた本文なので、返信スレッドでもトークンを節約できる。
  */
 export function listInboxMessagesSince(user: string, sinceIso: string, max: number): Promise<MailMessage[]> {
-  return listFolderSince<MailMessage>(user, "inbox", "receivedDateTime", sinceIso, MAIL_FIELDS, max, true);
+  // 本文(uniqueBody)付きは重いので、1回に取る件数を少なくする
+  return listFolderSince<MailMessage>(user, "inbox", "receivedDateTime", sinceIso, MAIL_FIELDS, max, true, 10);
 }
 
 export interface SentMessage {
@@ -101,7 +106,7 @@ export interface SentMessage {
 
 /** 送信済みフォルダから sinceIso 以降に送ったメール(返信済みの判定用) */
 export function listSentSince(user: string, sinceIso: string, max: number): Promise<SentMessage[]> {
-  return listFolderSince<SentMessage>(user, "sentitems", "sentDateTime", sinceIso, "conversationId,sentDateTime,bodyPreview", max, false);
+  return listFolderSince<SentMessage>(user, "sentitems", "sentDateTime", sinceIso, "conversationId,sentDateTime,bodyPreview", max, false, 50);
 }
 
 // ---------------------------------------------------------------- SharePoint リスト

@@ -81,6 +81,7 @@ async function main() {
 
   const now = new Date();
   const sinceIso = new Date(now.getTime() - args.days * 86400_000).toISOString();
+  console.log(`直近${args.days}日の受信メールを取得しています…`);
   const inbox = await listInboxMessagesSince("me", sinceIso, args.max);
   const sent = await listSentSince("me", sinceIso, args.max * 2);
   const replyIndex = buildReplyIndex(sent);
