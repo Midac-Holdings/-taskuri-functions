@@ -37,7 +37,8 @@ export async function graphFetch<T>(
       const text = await res.text();
       throw new Error(`Graph ${init.method ?? "GET"} ${url} -> ${res.status}: ${text.slice(0, 500)}`);
     }
-    if (res.status === 204) return undefined as T;
+    // 204 No Content、202 Accepted(sendMail など)は本文がない
+    if (res.status === 204 || res.status === 202) return undefined as T;
     return (await res.json()) as T;
   }
 }

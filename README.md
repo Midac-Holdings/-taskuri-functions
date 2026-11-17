@@ -18,6 +18,7 @@ Outlookの受信メールを読み、本人が今日やるべきタスクを自�
 |---|---|
 | `src/functions/taskuriTimer.ts` | 15分おきのタイマー。各ユーザーの実行時刻を見て処理 |
 | `src/functions/taskuriRunNow.ts` | 手動実行API(`POST /api/taskuri/run?user=...`) |
+| `src/functions/wnwTimer.ts` | What'sNew ウォッチャーの新着メール(下の「What'sNew ウォッチャーのメール通知」) |
 | `src/lib/recipient.ts` | 宛先の立場の判定(To単独 / To複数 / CC / BCC・グループ) |
 | `src/lib/prompt.ts` | AOAIへのプロンプトと出力スキーマ(Structured Outputs) |
 | `src/lib/aoai.ts` | AOAI呼び出し(マネージドID) |
@@ -201,6 +202,56 @@ Test-ServicePrincipalAuthorization -Identity <マネージドIDのアプリID> -
 - 設定リストの `Title`(メールアドレス)列は、GUIで編集できないようにしてください。
 - 1つのリストで個別の権限を持てるアイテム数には上限があります(推奨は数千件、上限は5万件)。
   完了済みの古いタスクを定期的に削除する処理を、次のステップで追加します。
+
+## What'sNew ウォッチャーのメール通知(`wnwTimer`)
+
+市民開発基盤(`Midac-Holdings/citizen-dev-platform`)の **What'sNew ウォッチャー**(`/cp/wnw/`)用です。
+30分おき(毎時 5分・35分)に会社HP(https://www.midac.jp/news/)の新着情報を読み、新しい記事があれば、
+画面で「メールで受け取る」を押した人に Graph でメールします。Static Web Apps のマネージド関数はタイマーで動かせないため、
+この Function App に同居させています。
+
+```
+画面(/cp/wnw/)──登録・解除──▶ 基盤の API /api/cp-wnw/subscription ──(SAS)──▶ Table Storage「WnwWatcher」
+                                                                                    ▲(マネージドID)
+wnwTimer(30分おき)── 会社HPを読む → 通知済みと比べる → 新着があれば登録者に1通ずつメール → 通知済みに追加
+```
+
+| ファイル | 役割 |
+|---|---|
+| `src/functions/wnwTimer.ts` | タイマー。設定が未登録なら何もしない(タスクリの動作には影響しない) |
+| `src/lib/wnw/news.ts` | 会社HPの一覧の読み取り(基盤の `api/src/lib/midacNews.js` と同じ方法。HPの形式が変わったら両方を直す) |
+| `src/lib/wnw/run.ts` | 新着の判定と送信の流れ |
+| `src/lib/wnw/table.ts` | Table Storage の読み書き(登録者・通知済みの記事ID) |
+| `src/lib/wnw/mail.ts` | メールの文面 |
+
+- **初回**は、今ある記事をすべて通知済みにするだけで、メールは送りません。
+- 一覧の記事が**すべて新しい**と判定されたときは、HPの形式が変わった疑いがあるので、送らずに通知済みを作り直します(ログに `[注意]`)。
+- 全員への送信に失敗したときは通知済みを更新せず、次の回にもう一度送ります。
+
+### 設定の手順
+1. **ストレージアカウントを1つ作る**(例:`midacwnw`。`AzureWebJobsStorage` とは**別**にする。手順3の SAS がアカウント全体に効くため)。
+   テーブル `WnwWatcher` は、タイマーの初回実行で自動で作られます。
+2. ストレージアカウントの「アクセス制御(IAM)」で、この Function App のマネージドIDに **ストレージ テーブル データ共同作成者**
+   (Storage Table Data Contributor)を割り当てる。
+3. ストレージアカウントの「Shared Access Signature」で SAS を作る:
+   許可されるサービス=**テーブル**のみ、リソースの種類=**オブジェクト**、アクセス許可=**読み取り・追加・更新・削除**、
+   HTTPS のみ、有効期限=例えば1年後(**期限が切れると画面からの登録ができなくなる**ので、期限前に作り直す)。
+   作った「SAS トークン」を、市民開発基盤の静的 Web アプリ →「環境変数」に登録する:
+   `WNW_TABLE_ENDPOINT`=`https://<アカウント名>.table.core.windows.net`、`WNW_TABLE_SAS`=SAS トークン。
+4. **送信元のメールボックス**を用意する(例:`noreply@midac.jp` の共有メールボックス)。
+   Exchange で、マネージドIDに **このメールボックスだけ** への送信を許可する:
+   ```powershell
+   Connect-ExchangeOnline
+   # New-ServicePrincipal はタスクリの手順5で作成済みなら不要
+   New-ManagementScope -Name "Wnw-Sender" -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'noreply@midac.jp'"
+   New-ManagementRoleAssignment -App <マネージドIDのアプリID> -Role "Application Mail.Send" -CustomResourceScope "Wnw-Sender"
+   # 確認(送信元で InScope=True、ほかのユーザーで False になること)
+   Test-ServicePrincipalAuthorization -Identity <マネージドIDのアプリID> -Resource noreply@midac.jp
+   ```
+   > Entra 側で `Mail.Send` を付与しないでください。付与すると、全員のアドレスから送信できる状態になります。
+5. Function App のアプリ設定に `WNW_TABLE_ENDPOINT`、`WNW_SENDER`、`WNW_APP_URL`(任意)を登録する(`local.settings.sample.json` 参照)。
+6. 動作確認:Function App の「ログ」で、初回に `What'sNew: 初回のため 50 件を通知済みにしました` が出ること。
+   画面で「メールで受け取る」を押し、次に会社HPに記事が載ったあとの回でメールが届くこと。
 
 ## ローカルでの実行とテスト
 
