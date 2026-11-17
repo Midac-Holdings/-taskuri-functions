@@ -20,6 +20,11 @@
     "TASKURI_AI_CONCURRENCY": "3",
     "TASKURI_GRANT_OWNERS": "true",
 
+    "WNW_TABLE_ENDPOINT": "https://<What'sNew 用ストレージアカウント名>.table.core.windows.net",
+    "WNW_TABLE_NAME": "WnwWatcher",
+    "WNW_SENDER": "<送信元のメールボックス 例: noreply@midac.jp>",
+    "WNW_APP_URL": "https://lively-moss-0403f1500.6.azurestaticapps.net/cp/wnw/",
+
     "AZURE_TENANT_ID": "<ローカル実行時のみ: テナントID>",
     "AZURE_CLIENT_ID": "<ローカル実行時のみ: テスト用アプリのクライアントID>",
     "AZURE_CLIENT_CERTIFICATE_PATH": "<ローカル実行時のみ: 証明書(PEM)のパス。SharePoint REST はシークレット不可。本番はマネージドIDなので不要>"
